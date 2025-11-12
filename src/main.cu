@@ -28,7 +28,7 @@ int main()
     std::iota(A, A + SIZE, 1);
     std::iota(B, B + SIZE, 1);
 
-    float *d_A, d_B, d_result;
+    float *d_A, *d_B, *d_result;
     cudaMalloc(&d_A, SIZE * sizeof(float));
     cudaMalloc(&d_B, SIZE * sizeof(float));
     cudaMalloc(&d_result, SIZE * sizeof(float));
