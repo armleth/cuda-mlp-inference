@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <iostream>
 #include <numeric>
 
 #include "./matrix_operations.h"
@@ -20,17 +21,17 @@ int main()
     int N = 2;
     int SIZE = M * N;
 
-    float *A = malloc(SIZE * sizeof(float));
-    float *B = malloc(SIZE * sizeof(float));
-    float *result = malloc(SIZE * sizeof(float));
+    float *A = (float *)malloc(SIZE * sizeof(float));
+    float *B = (float *)malloc(SIZE * sizeof(float));
+    float *result = (float *)malloc(SIZE * sizeof(float));
 
     std::iota(A, A + SIZE, 1);
     std::iota(B, B + SIZE, 1);
 
     float *d_A, d_B, d_result;
-    cudaMalloc(d_A, SIZE * sizeof(float));
-    cudaMalloc(d_B, SIZE * sizeof(float));
-    cudaMalloc(d_result, SIZE * sizeof(float));
+    cudaMalloc(&d_A, SIZE * sizeof(float));
+    cudaMalloc(&d_B, SIZE * sizeof(float));
+    cudaMalloc(&d_result, SIZE * sizeof(float));
 
     cudaMemcpy(d_A, A, SIZE * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, B, SIZE * sizeof(float), cudaMemcpyHostToDevice);
@@ -48,11 +49,11 @@ int main()
     cudaMemcpy(result, d_result, SIZE * sizeof(float), cudaMemcpyDeviceToHost);
 
     bool error = false;
-    for (auto i = 0; i < N * M; i++)
+    for (auto i = 0; i < SIZE; i++)
     {
-        if (error = a[i] + b[i] != c[i])
+        if ((error = A[i] + B[i] != result[i]))
         {
-            printf("ERROR at index %d.", i);
+            std::cout << "ERROR at index " << i << ".\n";
             break;
         }
     }
