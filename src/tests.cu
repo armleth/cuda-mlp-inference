@@ -20,9 +20,10 @@ __host__ int tests_matrix_addition()
     int N = 2;
     int SIZE = M * N;
 
-    float *A = cudaMallocManaged(SIZE * sizeof(float));
-    float *B = cudaMallocManaged(SIZE * sizeof(float));
-    float *result = cudaMallocManaged(SIZE * sizeof(float));
+    float *A, *B, *result;
+    cudaMallocManaged(&a, SIZE * sizeof(float));
+    cudaMallocManaged(&b, SIZE * sizeof(float));
+    cudaMallocManaged(&result, SIZE * sizeof(float));
 
     std::iota(A, A + SIZE, 1);
     std::iota(B, B + SIZE, 1);
