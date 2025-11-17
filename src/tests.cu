@@ -2,6 +2,7 @@
 #include <numeric>
 
 #include "./matrix_operations.h"
+#include "./tests.h"
 
 #define cudaCheckError()                                                       \
     {                                                                          \
