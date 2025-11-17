@@ -48,8 +48,14 @@ A more complex model of your choice (e.g. YOLO, RNN, small Transformer, etc.)
 
 Implement Level 1 and/or Level 2 using Triton
 
+# Testing
+
+A small file `weights.json` is located at the root of the `src` directory, based on https://mattmazur.com/2015/03/17/a-step-by-step-backpropagation-example
+
 # TODO
 
+- Change this horrible architecture
 - Switch to gtest
 - Factorise tests_matrix_multiplications
 - Add pitch in 2D matrixes multiplication
+- Use thrust and https://docs.nvidia.com/cuda/cublas/index.html#cublasltmatmul to compute matrix mutliplication
