@@ -1,5 +1,6 @@
 #include <iostream>
 #include <numeric>
+#include <vector>
 
 #include "./matrix_operations.h"
 #include "./tests.h"
@@ -75,8 +76,8 @@ __host__ int tests_matrix_multiplication_basic()
     //     [  9 10 ]
     //     [ 11 12 ]   (3x2)
     //
-    // C = A * B = (2x2)
-    // C = [ 58  64 ]
+    // result = A * B = (2x2)
+    // result = [ 58  64 ]
     //     [139 154]
 
     int M = 2;
@@ -85,12 +86,12 @@ __host__ int tests_matrix_multiplication_basic()
 
     int sizeA = M * N;
     int sizeB = N * K;
-    int sizeC = M * K;
+    int sizeResult = M * K;
 
     float *A, *B, *result;
     cudaMallocManaged(&A, sizeA * sizeof(float));
     cudaMallocManaged(&B, sizeB * sizeof(float));
-    cudaMallocManaged(&result, sizeC * sizeof(float));
+    cudaMallocManaged(&result, sizeResult * sizeof(float));
 
     A[0] = 1.0f;
     A[1] = 2.0f;
@@ -110,8 +111,8 @@ __host__ int tests_matrix_multiplication_basic()
     dim3 blocks_per_grid((K + threads_per_block.x - 1) / threads_per_block.x,
                          (M + threads_per_block.y - 1) / threads_per_block.y);
 
-    matrix_multiplication<<<blocks_per_grid, threads_per_block>>>(A, B, C, M, N,
-                                                                  K);
+    matrix_multiplication<<<blocks_per_grid, threads_per_block>>>(A, B, result,
+                                                                  M, N, K);
     cudaDeviceSynchronize();
     cudaCheckError();
 
@@ -119,7 +120,7 @@ __host__ int tests_matrix_multiplication_basic()
 
     bool error = false;
     const float eps = 1e-5f;
-    for (int i = 0; i < sizeC; ++i)
+    for (int i = 0; i < sizeResult; ++i)
     {
         if (fabs(result[i] - expected[i]) > eps)
         {

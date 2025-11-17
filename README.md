@@ -47,3 +47,9 @@ Implement one or more of the following ideas:
 A more complex model of your choice (e.g. YOLO, RNN, small Transformer, etc.)
 
 Implement Level 1 and/or Level 2 using Triton
+
+# TODO
+
+- Switch to gtest
+- Factorise tests_matrix_multiplications
+- Add pitch in 2D matrixes multiplication

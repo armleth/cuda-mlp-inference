@@ -22,7 +22,7 @@ __global__ void matrix_multiplication(float *A, float *B, float *result, int M,
     if (tidx >= K || tidy >= M)
         return;
 
-    int sum = 0;
+    float sum = 0;
     for (int i = 0; i < N; ++i)
         sum += A[tidy * N + i] * B[i * K + tidx];
 
