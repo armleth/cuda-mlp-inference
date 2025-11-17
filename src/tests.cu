@@ -1,7 +1,7 @@
 #include <iostream>
 #include <numeric>
 
-#include "./tests.h"
+#include "./matrix_operations.h"
 
 #define cudaCheckError()                                                       \
     {                                                                          \
