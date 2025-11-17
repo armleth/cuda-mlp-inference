@@ -1,5 +1,4 @@
-
-#include "./tests.cu"
+#include "./tests.h"
 
 int main()
 {
