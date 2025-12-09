@@ -1,7 +1,8 @@
 add_library(NNLib
     src/kernels.cu
+    src/matmul.cu
     src/tensor.cu
-    src/layers.cpp
+    src/layers.cu
     src/utils.cpp
 )
 
