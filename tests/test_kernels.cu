@@ -1,6 +1,7 @@
 #include "catch.hpp"
 #include <nnlib/kernels.h>
 #include <nnlib/tensor.h>
+#include <nnlib/matmul.h>
 #include <vector>
 #include <cmath>
 
@@ -43,8 +44,12 @@ TEST_CASE("Kernel: Matrix Multiplication (Tensor2D)", "[kernel][matmul]") {
     // [ 58,  64 ]
     // [139, 154 ]
 
-    launch_matmul(A->data(), B->data(), C->data(), 
-                  A->rows(), A->cols(), B->cols());
+    /* launch_matmul(A->data(), B->data(), C->data(), A->rows(), A->cols(), B->cols()); */
+    dim3 dimBlock(TILE_WIDTH, TILE_WIDTH);
+    dim3 dimGrid((B->cols() + TILE_WIDTH - 1) / TILE_WIDTH,
+                 (A->rows() + TILE_WIDTH - 1) / TILE_WIDTH);
+    matmul_tiled<<<dimGrid, dimBlock>>>(A->data(), B->data(), C->data(), A->rows(), A->cols(), B->cols());
+    cudaDeviceSynchronize();
 
     REQUIRE(approx_equal(C->data()[0], 58.0f));
     REQUIRE(approx_equal(C->data()[1], 64.0f));
