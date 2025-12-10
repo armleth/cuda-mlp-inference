@@ -4,6 +4,33 @@
 #include <iostream>
 #include <algorithm>
 #include <iomanip>
+#include <vector>
+#include <numeric>
+#include <cuda_runtime.h>
+
+/* Helper class for RAII CUDA Event handling */
+class CudaTimer {
+    cudaEvent_t start, stop;
+public:
+    CudaTimer() {
+        cudaEventCreate(&start);
+        cudaEventCreate(&stop);
+    }
+    ~CudaTimer() {
+        cudaEventDestroy(start);
+        cudaEventDestroy(stop);
+    }
+    void tic() {
+        cudaEventRecord(start);
+    }
+    float toc() {
+        cudaEventRecord(stop);
+        cudaEventSynchronize(stop);
+        float milliseconds = 0;
+        cudaEventElapsedTime(&milliseconds, start, stop);
+        return milliseconds;
+    }
+};
 
 /* argmax: helper to find the index of the maximum value (ArgMax) */
 int argmax(const float* data, int size) {
@@ -26,13 +53,12 @@ int main(int argc, char* argv[]) {
         /* load Model Weights */
         auto raw_tensors = load_binary_weights(weights_file);
         
-        /* validation: 784->128->10 requires 4 tensors (W1, B1, W2, B2) */
         if(raw_tensors.size() < 4) {
             std::cerr << "Error: Model weights invalid." << std::endl;
             return 1;
         }
 
-        /* Define architecture (must match what we defined during Python training!) */
+        /* Define architecture */
         Sequential model;
 
         /* layer 1: 784 -> 128 */
@@ -41,7 +67,8 @@ int main(int argc, char* argv[]) {
         model.add(fc1);
 
         /* activation */
-        model.add(std::make_shared<ReLU>());
+        auto relu = std::make_shared<ReLU>();
+        model.add(relu);
 
         /* layer 2: 128 -> 10 */
         auto fc2 = std::make_shared<Linear>(128, 10);
@@ -51,41 +78,85 @@ int main(int argc, char* argv[]) {
         /* load test data */
         auto test_data = load_mnist_samples(samples_file);
 
-        /* run inference loop */
         int correct = 0;
         int total = test_data.size();
         
-        /* pre-allocate input tensor (batch size 1, 784 features) */
         auto input_tensor = std::make_shared<Tensor2D>(1, 784);
+
+        /* ---- BENCHMARKING VARIABLES ---- */
+        CudaTimer global_timer;
+        CudaTimer layer_timer;
+        
+        float total_inference_time_ms = 0.0f;
+        float total_fc1_time = 0.0f;
+        float total_relu_time = 0.0f;
+        float total_fc2_time = 0.0f;
 
         std::cout << "\nStarting Inference on " << total << " images...\n" << std::endl;
 
+        /* Start Global Timer */
+        global_timer.tic();
+
         for(int i = 0; i < total; ++i) {
-            /* load data into tensor (Unified Memory) */
+            /* load data into tensor */
             input_tensor->set_data(test_data[i].pixels);
 
-            /* forward pass */
-            auto output = model.forward(input_tensor);
+            /* Manual Forward Pass to time individual layers */
+            /* Note: Usually model.forward() handles this loop. To benchmark layers,
+               we must manually step through them or modify the Sequential class.
+               Here we manually invoke them for granular timing. */
+
+            // 1. FC1 Forward
+            layer_timer.tic();
+            auto out1 = fc1->forward(input_tensor);
+            total_fc1_time += layer_timer.toc();
+
+            // 2. ReLU Forward
+            layer_timer.tic();
+            auto out2 = relu->forward(out1);
+            total_relu_time += layer_timer.toc();
+
+            // 3. FC2 Forward
+            layer_timer.tic();
+            auto output = fc2->forward(out2);
+            total_fc2_time += layer_timer.toc();
+            
             auto out_ptr = std::dynamic_pointer_cast<Tensor2D>(output);
 
-            /* get prediction (argmax of the 10 outputs) */
+            /* get prediction */
             int prediction = argmax(out_ptr->data(), 10);
             int label = test_data[i].label;
 
             if (prediction == label) correct++;
 
-            /* print first 10 to see it working */
+            /* print first 10 */
             if(i < 10) {
                 std::cout << "Img " << i << " | Pred: " << prediction 
                           << " | Actual: " << label 
                           << (prediction == label ? " [OK]" : " [FAIL]") << std::endl;
             }
         }
+        
+        /* End Global Timer */
+        float global_duration = global_timer.toc();
+        
+        /* Calculate aggregate inference time (sum of layers) to compare vs global wall time */
+        total_inference_time_ms = total_fc1_time + total_relu_time + total_fc2_time;
 
         /* final stats */
         float accuracy = (float)correct / total * 100.0f;
+        
         std::cout << "--------------------------------" << std::endl;
         std::cout << "Accuracy: " << std::fixed << std::setprecision(2) << accuracy << "%" << std::endl;
+        std::cout << "--------------------------------" << std::endl;
+        std::cout << "BENCHMARK RESULTS (" << total << " samples):" << std::endl;
+        std::cout << "Total Global Time (incl. data loading/cpu): " << global_duration << " ms" << std::endl;
+        std::cout << "Total Pure GPU Inference Time:              " << total_inference_time_ms << " ms" << std::endl;
+        std::cout << "Average Inference per sample:               " << (total_inference_time_ms / total) << " ms" << std::endl;
+        std::cout << "\nLayer Breakdown (Average per pass):" << std::endl;
+        std::cout << "  FC1 (784->128): " << (total_fc1_time / total) << " ms" << std::endl;
+        std::cout << "  ReLU:           " << (total_relu_time / total) << " ms" << std::endl;
+        std::cout << "  FC2 (128->10):  " << (total_fc2_time / total) << " ms" << std::endl;
 
     } catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
