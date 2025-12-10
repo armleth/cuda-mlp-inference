@@ -1,9 +1,10 @@
 add_library(NNLib
-    src/kernels.cu
+    src/vecadd.cu
     src/matmul.cu
     src/tensor.cu
     src/layers.cu
     src/utils.cpp
+    src/kernels.cu
 )
 
 target_include_directories(NNLib PUBLIC

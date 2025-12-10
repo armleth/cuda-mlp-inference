@@ -1,6 +1,7 @@
 #include <nnlib/layers.h>
-#include <nnlib/kernels.h>
+#include <nnlib/vecadd.h>
 #include <nnlib/matmul.h>
+#include <nnlib/kernels.h>
 
 #include <stdexcept>
 
@@ -24,14 +25,12 @@ std::shared_ptr<Tensor> Linear::forward(std::shared_ptr<Tensor> input) {
 
     auto output = std::make_shared<Tensor2D>(batch_size, output_dim);
 
-    /* launch_matmul(input2d->data(), weights->data(), output->data(), batch_size, input_dim, output_dim); */
     dim3 dimBlock(TILE_WIDTH, TILE_WIDTH);
     dim3 dimGrid((output_dim + TILE_WIDTH - 1) / TILE_WIDTH,
                  (batch_size + TILE_WIDTH - 1) / TILE_WIDTH);
     matmul_tiled<<<dimGrid, dimBlock>>>(input2d->data(), weights->data(), output->data(), batch_size, input_dim, output_dim);
     cudaDeviceSynchronize();
 
-    /* launch_add_bias(output->data(), bias->data(), batch_size, output_dim); */
     unsigned int threads = 256;
     unsigned int blocks = (bias->size() + threads - 1) / threads;
     vecadd_basic<<<threads, blocks>>>(output->data(), bias->data(), output->data(), output_dim); // not very usefull
@@ -41,7 +40,11 @@ std::shared_ptr<Tensor> Linear::forward(std::shared_ptr<Tensor> input) {
 }
 
 std::shared_ptr<Tensor> ReLU::forward(std::shared_ptr<Tensor> input) {
-    launch_relu(input->data(), input->size());
+    unsigned int threads = 256;
+    unsigned int blocks = (input->size() + threads - 1) / threads;
+    relu_kernel<<<blocks, threads>>>(input->data(), input->size());
+    cudaDeviceSynchronize();
+
     return input;
 }
 

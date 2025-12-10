@@ -1,7 +1,8 @@
 #include "catch.hpp"
-#include <nnlib/kernels.h>
+#include <nnlib/vecadd.h>
 #include <nnlib/tensor.h>
 #include <nnlib/matmul.h>
+#include <nnlib/kernels.h>
 #include <vector>
 #include <cmath>
 #include <iostream>
@@ -17,7 +18,10 @@ TEST_CASE("Kernel: ReLU Activation (Tensor2D)", "[kernel][relu]") {
     std::vector<float> input = {-10.0f, -1.0f, 0.0f, 1.0f, 10.0f};
     t->set_data(input);
 
-    launch_relu(t->data(), t->size());
+    unsigned int threads = 256;
+    unsigned int blocks = (t->size() + threads - 1) / threads;
+    relu_kernel<<<blocks, threads>>>(t->data(), t->size());
+    cudaDeviceSynchronize();
 
     REQUIRE(t->data()[0] == 0.0f);
     REQUIRE(t->data()[1] == 0.0f);
@@ -46,7 +50,6 @@ TEST_CASE("Kernel: Matrix Multiplication (Tensor2D)", "[kernel][matmul]") {
     // [ 58,  64 ]
     // [139, 154 ]
 
-    /* launch_matmul(A->data(), B->data(), C->data(), A->rows(), A->cols(), B->cols()); */
     dim3 dimBlock(TILE_WIDTH, TILE_WIDTH);
     dim3 dimGrid((B->cols() + TILE_WIDTH - 1) / TILE_WIDTH,
                  (A->rows() + TILE_WIDTH - 1) / TILE_WIDTH);
@@ -60,9 +63,8 @@ TEST_CASE("Kernel: Matrix Multiplication (Tensor2D)", "[kernel][matmul]") {
 }
 
 TEST_CASE("Kernel: Add Bias (Tensor2D)", "[kernel][bias]") {
-    // Matrix (2x2)
+    // Matrix (1x2)
     // 10 20
-    // 30 40
     auto Mat = std::make_shared<Tensor2D>(1, 2);
     Mat->set_data({10.f, 20.f});
 
@@ -71,25 +73,26 @@ TEST_CASE("Kernel: Add Bias (Tensor2D)", "[kernel][bias]") {
     auto Bias = std::make_shared<Tensor2D>(1, 2);
     Bias->set_data({1.f, 2.f});
 
-    // launch_add_bias(Mat->data(), Bias->data(), Mat->rows(), Mat->cols());
-    //unsigned int threads = 256;
-    //unsigned int blocks = (Bias->size() + threads - 1) / threads;
-    //vecadd_basic<<<blocks, threads>>>(Mat->data(), Bias->data(), Mat->data(), Mat->cols());
-
-    //unsigned int threads = 256;
-    //unsigned int blocks = (Bias->size() + threads - 1) / threads;
-    //vecadd_cascaded<<<blocks, threads>>>(Mat->data(), Bias->data(), Mat->data(), Mat->cols());
-
     unsigned int threads = 256;
-    assert(Bias->size() != 0);
+    unsigned int blocks = (Bias->size() + threads - 1) / threads;
+    vecadd_basic<<<blocks, threads>>>(Mat->data(), Bias->data(), Mat->data(), Mat->cols());
+
+    /*
+    unsigned int threads = 256;
+    unsigned int blocks = (Bias->size() + threads - 1) / threads;
+    vecadd_cascaded<<<blocks, threads>>>(Mat->data(), Bias->data(), Mat->data(), Mat->cols());
+    */
+
+    /*
+    unsigned int threads = 256;
     unsigned int blocks = ((Bias->size() / 4) + threads - 1) / threads;
-    vecadd_vectorized<<<blocks, threads>>>(Mat->data(), Bias->data(), Mat->data(), Mat->cols());
+    assert((Bias->size() / 4) != 0);
+    vecadd_cascaded<<<blocks, threads>>>(Mat->data(), Bias->data(), Mat->data(), Mat->cols());
+    */
+
     cudaDeviceSynchronize();
 
     // Row 0: 10+1, 20+2 -> 11, 22
-    // Row 1: 30+1, 40+2 -> 31, 42
     REQUIRE(Mat->data()[0] == 11.0f);
     REQUIRE(Mat->data()[1] == 22.0f);
-    //REQUIRE(Mat->data()[2] == 31.0f);
-    //REQUIRE(Mat->data()[3] == 42.0f);
 }
