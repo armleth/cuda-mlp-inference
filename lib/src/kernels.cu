@@ -90,6 +90,42 @@ __global__ void relu_kernel(float *data, int size)
     }
 }
 
+__global__ void convolution_2d_square_kernel(float *input, float *output,
+                                             unsigned int width,
+                                             unsigned int height, float *mask,
+                                             unsigned int kernel_size,
+                                             unsigned int stride,
+                                             unsigned int padding)
+{
+    int out_col = blockIdx.x * blockDim.x + threadIdx.x;
+    int out_row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    int output_width = (width + 2 * padding - kernel_size) / stride + 1;
+    int output_height = (height + 2 * padding - kernel_size) / stride + 1;
+
+    if (out_col < output_width && out_row < output_height)
+    {
+        float sum = 0.0f;
+
+        for (int ky = 0; ky < kernel_size; ky++)
+        {
+            for (int kx = 0; kx < kernel_size; kx++)
+            {
+                // Corresponding input coordinates
+                int in_row = out_row * stride + ky - padding;
+                int in_col = out_col * stride + kx - padding;
+
+                if (in_row >= 0 && in_row < height && in_col >= 0
+                    && in_col < width)
+                    sum += input[in_row * width + in_col]
+                        * mask[ky * kernel_size + kx];
+            }
+        }
+
+        output[out_row * output_width + out_col] = sum;
+    }
+}
+
 void launch_matmul(const float *A, const float *B, float *C, int M, int N,
                    int K)
 {
