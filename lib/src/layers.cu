@@ -31,7 +31,11 @@ std::shared_ptr<Tensor> Linear::forward(std::shared_ptr<Tensor> input) {
     matmul_tiled<<<dimGrid, dimBlock>>>(input2d->data(), weights->data(), output->data(), batch_size, input_dim, output_dim);
     cudaDeviceSynchronize();
 
-    launch_add_bias(output->data(), bias->data(), batch_size, output_dim);
+    /* launch_add_bias(output->data(), bias->data(), batch_size, output_dim); */
+    unsigned int threads = 256;
+    unsigned int blocks = (bias->size() + threads - 1) / threads;
+    vecadd_basic<<<threads, blocks>>>(output->data(), bias->data(), output->data(), output_dim); // not very usefull
+    cudaDeviceSynchronize();
 
     return output;
 }
